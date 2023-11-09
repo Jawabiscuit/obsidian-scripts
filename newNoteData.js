@@ -7,7 +7,6 @@ const PERIODIC_TYPES = [
     "yearly",
 ]
 const DEFAULT_NO_TO_TASKS = [
-    "daily",
     "weekly",
     "monthly",
     "quarterly",
@@ -23,18 +22,21 @@ const DEFAULT_NO_TO_TASKS = [
 */
 async function newNoteData(tp, dv) {
     const fileDateISO = tp.date.now("YYYY-MM-DD", 0, tp.file.title, "YYYY-MM-DD");
-    const titleWODate = tp.file.title.split(fileDateISO + "-")[1];
     const folder = tp.file.folder(relative=true);
     const dateFmt = "ddd Do MMM";
     const fileDate = moment(fileDateISO).format(dateFmt);
 
     let type;
     let series;
+    let titleWODate = tp.file.title.split(fileDateISO + "-")[1];
 
     var answer;
 
     const title = qcFileName(tp.file.title);
-    if (title !== tp.file.title) await tp.file.rename(title)
+    if (title !== tp.file.title) {
+        await tp.file.rename(title)
+        titleWODate = title.split(fileDateISO + "-")[1];
+    }
 
     const dirname = basename(folder);
     const types = [
@@ -85,7 +87,6 @@ async function newNoteData(tp, dv) {
         fileDate + " " + capitalizeWord(type) + " Note"
     );
     aliases.push(alias)
-    if (titleWODate !== "") aliases.push(titleWODate)
 
     subtitle = await tp.system.prompt(
         "🔱 Subtitle", alias.replace(fileDate + " ", "").toLowerCase()
