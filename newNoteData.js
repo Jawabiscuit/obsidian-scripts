@@ -21,22 +21,35 @@ const DEFAULT_NO_TO_TASKS = [
  * @returns An object of key value pairs.
 */
 async function newNoteData(tp, dv) {
-    const fileDateISO = tp.date.now("YYYY-MM-DD", 0, tp.file.title, "YYYY-MM-DD");
-    const folder = tp.file.folder(relative=true);
     const dateFmt = "ddd Do MMM";
-    const fileDate = moment(fileDateISO).format(dateFmt);
 
+    let folder = tp.file.folder(relative=true);
+    let title = tp.file.title;
+    let folderPath;
     let type;
     let series;
-    let titleWODate = tp.file.title.split(fileDateISO + "-")[1];
+    let answer;
 
-    var answer;
+    // This means the template should have been invoked using TP and not QA
+    if (title.startsWith("Untitled")) {
+        let folders = getAllFolderPathsInVault(tp);
+        folderPath = await getOrCreateFolder(tp, folders);
+        title = tp.date.now("YYYY-MM-DD") + "-" + title.toLowerCase();
+        title = await tp.system.prompt("Title", title);
+        if (folderPath !== folder) {
+            await tp.file.move(folderPath + "/" + title);
+            folder = folderPath;
+        }
+    }
 
-    const title = qcFileName(tp.file.title);
+    title = qcFileName(title);
     if (title !== tp.file.title) {
         await tp.file.rename(title)
-        titleWODate = title.split(fileDateISO + "-")[1];
     }
+
+    const fileDateISO = tp.date.now("YYYY-MM-DD", 0, title, "YYYY-MM-DD");
+    const fileDate = moment(fileDateISO).format(dateFmt);
+    let titleWODate = title.split(fileDateISO + "-")[1];
 
     const dirname = basename(folder);
     const types = [
@@ -130,7 +143,6 @@ async function newNoteData(tp, dv) {
         projectMeta = createMetaMarkdownLink("project", project);
     }
 
-    
     cached = app.metadataCache.getTags();
     cached["-- New --"] = 9999;
     const allTags = Object.entries(cached);
@@ -299,6 +311,37 @@ function qcFileName(fileName) {
 
 function isPeriodicNoteType(type) {
     return PERIODIC_TYPES.includes(type);
+}
+
+/** Yoinked from https://github.com/chhoumann/quickadd/blob/master/src/engine/TemplateEngine.ts */
+function getAllFolderPathsInVault(tp) {
+    return app.vault
+    .getAllLoadedFiles()
+    .filter((f) => f instanceof tp.obsidian.TFolder)
+    .map((folder) => folder.path);
+}
+
+/** Yoinked from https://github.com/chhoumann/quickadd/blob/master/src/engine/TemplateEngine.ts */
+async function getOrCreateFolder(tp, folders) {
+    let folderPath;
+
+    if (folders.length > 1) {
+        folderPath = await tp.system.suggester(folders, folders, false, "Select (or create) folder");
+        if (!folderPath) throw new Error("No folder selected.");
+    } else {
+        folderPath = folders[0];
+    }
+    await createFolder(folderPath);
+    return folderPath;
+}
+
+/** Yoinked from https://github.com/chhoumann/quickadd/blob/master/src/engine/TemplateEngine.ts */
+async function createFolder(folder) {
+    const folderExists = await this.app.vault.adapter.exists(folder);
+
+    if (!folderExists) {
+        await this.app.vault.createFolder(folder);
+    }
 }
 
 module.exports = newNoteData;
