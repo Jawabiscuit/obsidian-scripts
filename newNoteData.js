@@ -55,6 +55,8 @@ async function newNoteData(tp, dv) {
     const types = [
         "reference",
         "meeting",
+        "project",
+        "goal",
     ].concat(PERIODIC_TYPES)
 
     for (let t of types) {
@@ -81,6 +83,12 @@ async function newNoteData(tp, dv) {
             break;
         case "yearly":
             series = true;
+            break;
+        case "project":
+            series = false;
+            break;
+        case "goal":
+            series = false;
             break;
         case "meeting":
             answer = await tp.system.prompt("Series? (\"Y/n\")", "y");
@@ -124,12 +132,31 @@ async function newNoteData(tp, dv) {
             "Enter status"
         ) : null;
 
+    let goal;
+    if (type == "project") {
+        answer = await tp.system.prompt("Associate goal? (\"y/N\")", "n");
+        if (answer == "y") {
+            const goalNotes = dv.pages("#goal")
+                .where(p => !p.file.path.includes("template"))
+                .sort(p => p.file.mtime, "desc").values;
+            goal = await tp.system.suggester(
+                p => p.file.aliases.length ? p.file.aliases[0] : p.file.basename,
+                goalNotes,
+                false,
+                "Select goal");
+        }
+    }
+    let goalMeta;
+    if (goal) {
+        goalMeta = createMetaMarkdownLink("goal", goal);
+    }
+
     let project;
     if (["reference", "meeting", "journal"].includes(type)){
         answer = await tp.system.prompt("Associate project? (\"y/N\")", "n");
         if (answer == "y") {
             const projectNotes = dv.pages("#project")
-                .filter(p => p.file.path.includes("projects/"))
+                .where(p => !p.file.path.includes("template"))
                 .sort(p => p.file.mtime, "desc").values;
             project = await tp.system.suggester(
                 p => p.file.aliases.length ? p.file.aliases[0] : p.file.basename,
@@ -231,7 +258,33 @@ async function newNoteData(tp, dv) {
         answer = await tp.system.prompt("Track progress using tasks? (\"Y/n\")", "y");
     }
     if (answer == "y") {
-        taskProgress = 'bar::`$= dv.view("total-progress-bar", {file: "' + title + '"})`';
+        let progressView;
+        switch (type) {
+            case "project":
+                progressView = "total-progress-bar";
+                break;
+            case "goal":
+                progressView = "total-progress-bar";
+                break;
+            default:
+                progressView = "page-progress-bar";
+        }
+        taskProgress = 'bar::`$= dv.view("' + progressView + '", {file: "' + title + '"})`';
+    }
+
+    let journalView;
+    let resourceView;
+    if (type == "project") {
+        journalView = (
+            'journal::`$= dv.view("section", {file: "' + title +
+            '", searchTerm: "journal", headerName: "Journal", ' +
+            'headerNamePlural: "Journals", icon: "📓"})`'
+        );
+        resourceView = (
+            'resource::`$= dv.view("section", {file: "' + title +
+            '", searchTerm: "reference", headerName: "Resource", ' +
+            'headerNamePlural: "Resources", icon: "🔗"})`'
+        );
     }
 
     let image;
@@ -261,6 +314,9 @@ async function newNoteData(tp, dv) {
         nav: nav,
         img: image,
         project: projectMeta,
+        goal: goalMeta,
+        journal: journalView,
+        resource: resourceView,
     }
 }
 
