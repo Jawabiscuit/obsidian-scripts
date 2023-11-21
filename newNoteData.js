@@ -109,9 +109,14 @@ async function newNoteData(tp, dv) {
     );
     aliases.push(alias)
 
-    subtitle = await tp.system.prompt(
-        "🔱 Subtitle", alias.replace(fileDate + " ", "").toLowerCase()
-    );
+    let subtitle;
+    if (type == "goal") {
+        subtitle = await tp.system.prompt(
+        "🔱 Reason", alias.replace(fileDate + " ", "").toLowerCase());
+    } else {
+        subtitle = await tp.system.prompt(
+        "🔱 Subtitle", alias.replace(fileDate + " ", "").toLowerCase());
+    }
 
     const statuses = {
         "todo": "todo",
@@ -244,6 +249,8 @@ async function newNoteData(tp, dv) {
         includeFile = await tp.file.include("[[meeting]]");
     } else if (type == "reference") {
         includeFile = await tp.file.include("[[reference]]");
+    } else if (type == "goal") {
+        includeFile = await tp.file.include("[[goal]]");
     }
 
     let nav;
@@ -283,7 +290,32 @@ async function newNoteData(tp, dv) {
         resourceView = (
             'resource::`$= dv.view("section", {file: "' + title +
             '", searchTerm: "reference", headerName: "Resource", ' +
-            'headerNamePlural: "Resources", icon: "🔗"})`'
+            'headerNamePlural: "Resources", icon: "🔗", list: true})`'
+        );
+    }
+
+    let target;
+    let progress;
+    let projectListView;
+    let projectTableView;
+    let timeSpan;
+    if (type == "goal") {
+        let choices = [
+            "10 Years", "5 Years", "3 Years", "1 Year", "6 Months",
+            "3 Months", "1 Month", "1 Week",
+        ]
+        timeSpan = await tp.system.suggester(choices, choices);
+        target = 'target::`$= dv.view("target", {file: "' + title + '"})`';
+        progress = 'progress::`$= dv.view("progress", {file: "' + title + '"})`';
+        projectListView = (
+            'projects::`$= dv.view("section", {file: "' + title +
+            '", searchTerm: "project", headerName: "Project", ' +
+            'headerNamePlural: "Projects", icon: "🏗", list: true})`'
+        );
+        projectTableView = (
+            'project-tv::`$= dv.view("section", {file: "' + title +
+            '", searchTerm: "project", headerName: "Project", ' +
+            'headerNamePlural: "Projects", icon: "🏗"})`'
         );
     }
 
@@ -295,6 +327,11 @@ async function newNoteData(tp, dv) {
             .sort(f => f.ctime, "desc");
         const pickedImg = await tp.system.suggester((file) => file.basename, files)
         image = `img::[[${pickedImg.name}]]`;
+    }
+
+    let cssClasses = [];
+    if (journalView || resourceView || projectListView || projectTableView) {
+        cssClasses = ["cards", "cards-1-1", "table-wide"];
     }
 
     return {
@@ -317,6 +354,12 @@ async function newNoteData(tp, dv) {
         goal: goalMeta,
         journal: journalView,
         resource: resourceView,
+        projectLV: projectListView,
+        cssClasses: cssClasses,
+        target: target,
+        progress: progress,
+        projectTV: projectTableView,
+        timeSpan: timeSpan,
     }
 }
 
