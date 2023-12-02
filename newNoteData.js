@@ -329,11 +329,6 @@ async function newNoteData(tp, dv) {
         image = `img::[[${pickedImg.name}]]`;
     }
 
-    let cssClasses = [];
-    if (journalView || resourceView || projectListView || projectTableView) {
-        cssClasses = ["cards", "cards-1-1", "table-wide"];
-    }
-
     return {
         date: fileDateISO,
         title: alias,
@@ -355,7 +350,7 @@ async function newNoteData(tp, dv) {
         journal: journalView,
         resource: resourceView,
         projectLV: projectListView,
-        cssClasses: cssClasses,
+        cssClasses: [],
         target: target,
         progress: progress,
         projectTV: projectTableView,
