@@ -282,6 +282,8 @@ async function newNoteData(tp, dv) {
     let journalView;
     let resourceView;
     if (type == "project") {
+        projectDataView = 'project-dv::`$= dv.view("project-dv", {file: "' + title + '"})`';
+    } else {
         journalView = (
             'journal::`$= dv.view("section", {file: "' + title +
             '", searchTerm: "journal", headerName: "Journal", ' +
@@ -355,6 +357,7 @@ async function newNoteData(tp, dv) {
         progress: progress,
         projectTV: projectTableView,
         timeSpan: timeSpan,
+        projectDV: projectDataView,
     }
 }
 
