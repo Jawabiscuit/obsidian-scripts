@@ -1,3 +1,10 @@
+const BASE_NOTE_TYPES = [
+    "reference",
+    "meeting",
+    "project",
+    "goal",
+    "chat",
+]
 const PERIODIC_TYPES = [
     "journal",
     "daily",
@@ -11,6 +18,22 @@ const DEFAULT_NO_TO_TASKS = [
     "monthly",
     "quarterly",
     "yearly",
+    "reference",
+]
+const DEFAULT_DONT_ASK_STATUS = [
+    "chat",
+    "reference",
+]
+const DEFAULT_DONT_ASK_TASKS = [
+    "chat",
+]
+const DEFAULT_DONT_ASK_ATTACHMENTS = [
+    "chat",
+]
+const DEFAULT_ASK_ASSOC_PROJECT = [
+    "chat",
+    "journal",
+    "meeting",
     "reference",
 ]
 
@@ -52,12 +75,7 @@ async function newNoteData(tp, dv) {
     let titleWODate = title.split(fileDateISO + "-")[1];
 
     const dirname = basename(folder);
-    const types = [
-        "reference",
-        "meeting",
-        "project",
-        "goal",
-    ].concat(PERIODIC_TYPES)
+    const types = BASE_NOTE_TYPES.concat(PERIODIC_TYPES)
 
     for (let t of types) {
         if (dirname == t) {
@@ -88,6 +106,9 @@ async function newNoteData(tp, dv) {
             series = false;
             break;
         case "goal":
+            series = false;
+            break;
+        case "chat":
             series = false;
             break;
         case "meeting":
@@ -129,7 +150,7 @@ async function newNoteData(tp, dv) {
         "n/a": "na"
     };
 
-    const status = type != "reference" ? await
+    const status = !DEFAULT_DONT_ASK_STATUS.includes(type) ? await
         tp.system.suggester(
             Object.keys(statuses),
             Object.values(statuses),
@@ -157,7 +178,7 @@ async function newNoteData(tp, dv) {
     }
 
     let project;
-    if (["reference", "meeting", "journal"].includes(type)){
+    if (DEFAULT_ASK_ASSOC_PROJECT.includes(type)){
         answer = await tp.system.prompt("Associate project? (\"y/N\")", "n");
         if (answer == "y") {
             const projectNotes = dv.pages("#project")
@@ -259,7 +280,9 @@ async function newNoteData(tp, dv) {
     }
 
     let taskProgress;
-    if (DEFAULT_NO_TO_TASKS.includes(type)) {
+    if (DEFAULT_DONT_ASK_TASKS.includes(type)) {
+        answer = null;
+    } else if (DEFAULT_NO_TO_TASKS.includes(type)) {
         answer = await tp.system.prompt("Track progress using tasks? (\"y/N\")", "n");
     } else {
         answer = await tp.system.prompt("Track progress using tasks? (\"Y/n\")", "y");
@@ -281,6 +304,7 @@ async function newNoteData(tp, dv) {
 
     let journalView;
     let resourceView;
+    let projectDataView;
     if (type == "project") {
         projectDataView = 'project-dv::`$= dv.view("project-dv", {file: "' + title + '"})`';
     } else {
@@ -322,7 +346,11 @@ async function newNoteData(tp, dv) {
     }
 
     let image;
-    answer = await tp.system.prompt("Include attachment? (\"y/N\")", "n");
+    if (DEFAULT_DONT_ASK_ATTACHMENTS.includes(type)) {
+        answer = null;
+    } else {
+        answer = await tp.system.prompt("Include attachment? (\"y/N\")", "n");
+    }
     if (answer == "y") {
         const files = app.vault.getFiles()
             .filter(f => f.path.includes("attachments/") && ["png", "jpg"].includes(f.extension))
@@ -439,6 +467,21 @@ async function createFolder(folder) {
     if (!folderExists) {
         await this.app.vault.createFolder(folder);
     }
+}
+
+async function suggestFiles(dv, tp, searchTerm, msg) {
+    const pages = dv.pages(searchTerm)
+        .where(p => !p.file.path.includes("template"))
+        .sort(p => p.file.mtime, "desc").values;
+    return await tp.system.suggester(
+        p => p.file.aliases.length ? p.file.aliases[0] : p.file.basename, pages, false, msg);
+}
+
+async function suggestTemplateFiles(dv, tp, searchTerm, msg) {
+    const pages = dv.pages(searchTerm)
+        .where(p => p.file.path.includes("template"))
+        .sort(p => p.file.mtime, "desc").values;
+    return await tp.system.suggester(p => p.file.basename, pages, false, msg);
 }
 
 module.exports = newNoteData;
