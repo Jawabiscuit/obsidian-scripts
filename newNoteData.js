@@ -233,11 +233,11 @@ async function newNoteData(tp, dv) {
     if (!selectedTags.includes(removedItem)) {
         selectedTags.unshift(removedItem);
     }
+
     let newTag;
-    // Tag for periodic note has not been created
-    if (!tagFound() && isPeriodicNoteType(type)) {
+    // Tag has not been created
+    if (!tagFound())
         newTag = type;
-    }
 
     let tags;
     if (tagFound()) {
