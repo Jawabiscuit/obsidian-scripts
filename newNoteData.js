@@ -5,6 +5,7 @@ const BASE_NOTE_TYPES = [
     "goal",
     "chat",
 ]
+
 const PERIODIC_TYPES = [
     "journal",
     "daily",
@@ -13,6 +14,7 @@ const PERIODIC_TYPES = [
     "quarterly",
     "yearly",
 ]
+
 const DEFAULT_NO_TO_TASKS = [
     "weekly",
     "monthly",
@@ -20,16 +22,20 @@ const DEFAULT_NO_TO_TASKS = [
     "yearly",
     "reference",
 ]
+
 const DEFAULT_DONT_ASK_STATUS = [
     "chat",
     "reference",
 ]
+
 const DEFAULT_DONT_ASK_TASKS = [
     "chat",
 ]
+
 const DEFAULT_DONT_ASK_ATTACHMENTS = [
     "chat",
 ]
+
 const DEFAULT_ASK_ASSOC_PROJECT = [
     "chat",
     "journal",
