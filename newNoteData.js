@@ -43,6 +43,9 @@ const DEFAULT_ASK_ASSOC_PROJECT = [
     "reference",
 ]
 
+const resourceTClosure = template`resource::\`$= dv.view("section", {file: "${'t'}", searchTerm: "reference", headerName: "Resource", headerNamePlural: "Resources", icon: "🔗", list: true})\``;
+const journalTClosure = template`journal::\`$= dv.view("section", {file: "${'t'}", searchTerm: "journal", headerName: "Journal", headerNamePlural: "Journals", icon: "📓"})\``;
+
 /**
  * Prompts the user for default values and initializes variables.
  * @param {object} tp Templater tp object.
@@ -156,7 +159,7 @@ async function newNoteData(tp, dv) {
         "n/a": "na"
     };
 
-    const status = !DEFAULT_DONT_ASK_STATUS.includes(type) ? await
+    let status = !DEFAULT_DONT_ASK_STATUS.includes(type) ? await
         tp.system.suggester(
             Object.keys(statuses),
             Object.values(statuses),
@@ -243,6 +246,9 @@ async function newNoteData(tp, dv) {
         tags = [newTag];
     }
 
+    if (tags.includes("book"))
+        status = await tp.system.suggester(Object.keys(statuses), Object.values(statuses), false, "Enter status");
+
     let dailyProgress;
     if (["daily", "journal"].includes(type)) {
         const thisDate = new Date(fileDateISO + "T00:00");
@@ -274,10 +280,14 @@ async function newNoteData(tp, dv) {
         includeFile = await tp.file.include("[[yearly]]");
     } else if (type == "meeting") {
         includeFile = await tp.file.include("[[meeting]]");
-    } else if (type == "reference") {
-        includeFile = await tp.file.include("[[reference]]");
     } else if (type == "goal") {
         includeFile = await tp.file.include("[[goal]]");
+    } else if (type == "reference") {
+        if (tags.includes("book")) {
+            includeFile = await tp.file.include("[[book]]");
+        } else {
+            includeFile = await tp.file.include("[[reference]]");
+        }
     }
 
     let nav;
@@ -311,19 +321,12 @@ async function newNoteData(tp, dv) {
     let journalView;
     let resourceView;
     let projectDataView;
+
     if (type == "project") {
         projectDataView = 'project-dv::`$= dv.view("project-dv", {file: "' + title + '"})`';
     } else {
-        journalView = (
-            'journal::`$= dv.view("section", {file: "' + title +
-            '", searchTerm: "journal", headerName: "Journal", ' +
-            'headerNamePlural: "Journals", icon: "📓"})`'
-        );
-        resourceView = (
-            'resource::`$= dv.view("section", {file: "' + title +
-            '", searchTerm: "reference", headerName: "Resource", ' +
-            'headerNamePlural: "Resources", icon: "🔗", list: true})`'
-        );
+        journalView = journalTClosure({t: title});
+        resourceView = resourceTClosure({t: title});
     }
 
     let target;
@@ -398,6 +401,18 @@ async function newNoteData(tp, dv) {
 /**
  * Helper Functions
 */
+
+function template(strings, ...keys) {
+    return (...values) => {
+        const dict = values[values.length - 1] || {};
+        const result = [strings[0]];
+        keys.forEach((key, i) => {
+            const value = Number.isInteger(key) ? values[key] : dict[key];
+            result.push(value, strings[i + 1]);
+        });
+        return result.join("");
+    };
+}
 
 function log(msg) {
     console.log(msg);
