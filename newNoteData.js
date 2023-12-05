@@ -4,16 +4,19 @@ const BASE_NOTE_TYPES = [
     "project",
     "goal",
     "chat",
-]
+];
+
+const REVIEW_TYPES = {
+    "weekly": 7,
+    "monthly": 30,
+    "quarterly": 90,
+    "yearly": 365,
+};
 
 const PERIODIC_TYPES = [
     "journal",
     "daily",
-    "weekly",
-    "monthly",
-    "quarterly",
-    "yearly",
-]
+].concat(Object.keys(REVIEW_TYPES));
 
 const DEFAULT_NO_TO_TASKS = [
     "weekly",
@@ -21,30 +24,31 @@ const DEFAULT_NO_TO_TASKS = [
     "quarterly",
     "yearly",
     "reference",
-]
+];
 
 const DEFAULT_DONT_ASK_STATUS = [
     "chat",
     "reference",
-]
+];
 
 const DEFAULT_DONT_ASK_TASKS = [
     "chat",
-]
+];
 
 const DEFAULT_DONT_ASK_ATTACHMENTS = [
     "chat",
-]
+];
 
 const DEFAULT_ASK_ASSOC_PROJECT = [
     "chat",
     "journal",
     "meeting",
     "reference",
-]
+];
 
 const resourceTClosure = template`resource::\`$= dv.view("section", {file: "${'t'}", searchTerm: "reference", headerName: "Resource", headerNamePlural: "Resources", icon: "🔗", list: true})\``;
 const journalTClosure = template`journal::\`$= dv.view("section", {file: "${'t'}", searchTerm: "journal", headerName: "Journal", headerNamePlural: "Journals", icon: "📓"})\``;
+const overviewTClosure = template`overview::\`$= dv.view("overview", {file: "${'t'}", interval: "${'i'}"})\``;
 
 /**
  * Prompts the user for default values and initializes variables.
@@ -318,6 +322,10 @@ async function newNoteData(tp, dv) {
         taskProgress = 'bar::`$= dv.view("' + progressView + '", {file: "' + title + '"})`';
     }
 
+    let overview;
+    if (Object.keys(REVIEW_TYPES).includes(type))
+        overview = overviewTClosure({t: title, i: REVIEW_TYPES[type]});
+
     let journalView;
     let resourceView;
     let projectDataView;
@@ -395,6 +403,7 @@ async function newNoteData(tp, dv) {
         projectTV: projectTableView,
         timeSpan: timeSpan,
         projectDV: projectDataView,
+        overview: overview,
     }
 }
 
