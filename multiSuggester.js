@@ -28,55 +28,55 @@ async function multiSuggester(
     limit = undefined,
     sort = "",
 ) {
-  // List of items that are selected in the suggester
-  const selectedItems = [];
-  switch (sort) {
-    // Sorted alphabetically
-    case "alpha":
-      items = items.sort( (a, b) => a[0].localeCompare(b[0]) );
-      break;
-      // Sorted by occurance
-    case "occurance":
-      items = items.sort( (a, b) => b[1] - a[1], "desc" );
-      break;
-      // Sorted by occurance ascending
-    case "occurance|asc":
-      items = items.sort( (a, b) => b[1] - a[1], "asc" );
-      break;
-  }
-  // Looping to keep suggester modal open until escape is hit
-  while (true) {
-    const selectedItem = await tp.system.suggester(
-        textItems,
-        items,
-        throwOnCancel,
-        placeholder,
-        limit,
-    );
-      // If escape is hit, break out of loop to close suggester modal
-    if (!selectedItem) {
-      break;
+    // List of items that are selected in the suggester
+    const selectedItems = [];
+    switch (sort) {
+        // Sorted alphabetically
+        case "alpha":
+            items = items.sort( (a, b) => a[0].localeCompare(b[0]) );
+            break;
+        // Sorted by occurance
+        case "occurance":
+            items = items.sort( (a, b) => b[1] - a[1], "desc" );
+            break;
+        // Sorted by occurance ascending
+        case "occurance|asc":
+            items = items.sort( (a, b) => b[1] - a[1], "asc" );
+            break;
     }
-    // Hack to create a new item
-    if (selectedItem[0] === "-- New --") {
-      newTag = await tp.system.prompt("New tag");
-      selectedItems.push([`#${newTag}`, 0]);
-      continue;
+    // Looping to keep suggester modal open until escape is hit
+    while (true) {
+        const selectedItem = await tp.system.suggester(
+            textItems,
+            items,
+            throwOnCancel,
+            placeholder,
+            limit,
+        );
+        // If escape is hit, break out of loop to close suggester modal
+        if (!selectedItem) {
+            break;
+        }
+        // Hack to create a new item
+        if (selectedItem[0] === "-- New --") {
+            newTag = await tp.system.prompt("New tag");
+            selectedItems.push([`#${newTag}`, 0]);
+            continue;
+        }
+
+        // Otherwise, add selected item to list of selected items, remove item from multi-
+        // select, and keep looping
+        selectedItems.push(selectedItem);
+        const selectedItemIndex = items.findIndex((item) => item === selectedItem);
+        if (selectedItemIndex >= 0) {
+            items.splice(selectedItemIndex, 1);
+            if (Array.isArray(textItems)) {
+                textItems.splice(selectedItemIndex, 1);
+            }
+        }
     }
 
-    // Otherwise, add selected item to list of selected items, remove item from multi-
-    // select, and keep looping
-    selectedItems.push(selectedItem);
-    const selectedItemIndex = items.findIndex((item) => item === selectedItem);
-    if (selectedItemIndex >= 0) {
-      items.splice(selectedItemIndex, 1);
-      if (Array.isArray(textItems)) {
-        textItems.splice(selectedItemIndex, 1);
-      }
-    }
-  }
-
-  return selectedItems;
+    return selectedItems;
 }
 
 module.exports = multiSuggester;
