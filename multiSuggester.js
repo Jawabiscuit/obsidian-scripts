@@ -54,9 +54,9 @@ async function multiSuggester(
             limit,
         );
         // If escape is hit, break out of loop to close suggester modal
-        if (!selectedItem) {
+        if (!selectedItem)
             break;
-        }
+
         // Hack to create a new item
         if (selectedItem[0] === "-- New --") {
             newTag = await tp.system.prompt("New tag");
@@ -70,9 +70,8 @@ async function multiSuggester(
         const selectedItemIndex = items.findIndex((item) => item === selectedItem);
         if (selectedItemIndex >= 0) {
             items.splice(selectedItemIndex, 1);
-            if (Array.isArray(textItems)) {
+            if (Array.isArray(textItems))
                 textItems.splice(selectedItemIndex, 1);
-            }
         }
     }
 
