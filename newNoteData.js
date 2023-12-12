@@ -1,3 +1,5 @@
+const STATUS = require(app.vault.adapter.basePath + "/_views/common/status.js");
+
 const BASE_NOTE_TYPES = [
     "reference",
     "meeting",
@@ -149,16 +151,7 @@ async function newNoteData(tp, dv) {
             "🔱 Subtitle", alias.replace(fileDate + " ", "").toLowerCase());
     }
 
-    const statuses = {
-        "todo": "todo",
-        "waiting": "wtg",
-        "in-progress": "ip",
-        "finished": "fin",
-        "hold": "hld",
-        "complete": "cmpt",
-        "blocked": "blkd",
-        "n/a": "na",
-    };
+    const statuses = {...STATUS.all};
 
     let status = !DEFAULT_DONT_ASK_STATUS.includes(type) ? await
     tp.system.suggester(
