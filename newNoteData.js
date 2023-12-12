@@ -167,10 +167,10 @@ async function newNoteData(tp, dv) {
         answer = await tp.system.prompt("Associate goal? (\"y/N\")", "n");
         if (answer == "y") {
             const goalNotes = dv.pages("#goal")
-                .where((p) => !p.file.path.includes("template"))
-                .sort((p) => p.file.mtime, "desc").values;
+                .where(p => !p.file.path.includes("template"))
+                .sort(p => p.file.mtime, "desc").values;
             goal = await tp.system.suggester(
-                (p) => p.file.aliases.length ? p.file.aliases[0] : p.file.basename,
+                p => p.file.aliases.length ? p.file.aliases[0] : p.file.basename,
                 goalNotes,
                 false,
                 "Select goal");
@@ -185,10 +185,10 @@ async function newNoteData(tp, dv) {
         answer = await tp.system.prompt("Associate project? (\"y/N\")", "n");
         if (answer == "y") {
             const projectNotes = dv.pages("#project")
-                .where((p) => !p.file.path.includes("template"))
-                .sort((p) => p.file.mtime, "desc").values;
+                .where(p => !p.file.path.includes("template"))
+                .sort(p => p.file.mtime, "desc").values;
             project = await tp.system.suggester(
-                (p) => p.file.aliases.length ? p.file.aliases[0] : p.file.basename,
+                p => p.file.aliases.length ? p.file.aliases[0] : p.file.basename,
                 projectNotes,
                 false,
                 "Select project");
@@ -203,7 +203,7 @@ async function newNoteData(tp, dv) {
     const allTags = Object.entries(cached);
     // Add the note type automatically
     // Don't allow it to show in list of choices
-    const typeIndex = allTags.findIndex((item) => item[0] === `#${type}`);
+    const typeIndex = allTags.findIndex(item => item[0] === `#${type}`);
 
     let tagFound;
     let removedItem;
@@ -213,7 +213,7 @@ async function newNoteData(tp, dv) {
     }
     const selectedTags = !PERIODIC_TYPES.includes(type) ? await tp.user.multiSuggester(
         tp,
-        (t) => t[0].replace("#", ""),
+        t => t[0].replace("#", ""),
         allTags,
         false,
         "Choose tags (Enter to make new, ESC when finished)",
@@ -231,7 +231,7 @@ async function newNoteData(tp, dv) {
 
     let tags;
     if (tagFound)
-        tags = selectedTags.map((t) => t[0].replace("#", ""));
+        tags = selectedTags.map(t => t[0].replace("#", ""));
     else if (newTag)
         tags = [newTag];
 
@@ -359,10 +359,10 @@ async function newNoteData(tp, dv) {
 
     if (answer == "y") {
         const files = app.vault.getFiles()
-            .filter((f) => f.path.includes("attachments/") &&
+            .filter(f => f.path.includes("attachments/") &&
                 ["png", "jpg"].includes(f.extension))
-            .sort((f) => f.ctime, "desc");
-        const pickedImg = await tp.system.suggester((file) => file.basename, files);
+            .sort(f => f.ctime, "desc");
+        const pickedImg = await tp.system.suggester(file => file.basename, files);
         image = `img::[[${pickedImg.name}]]`;
     }
 
@@ -442,7 +442,7 @@ function template(strings, ...keys) {
  * @return {Array<string>}
  */
 function capitalizeWords(arr) {
-    return arr.map((word) => capitalizeWord(word));
+    return arr.map(word => capitalizeWord(word));
 }
 
 
@@ -535,8 +535,8 @@ function sanitizeText(text) {
 function getAllFolderPathsInVault(tp) {
     return app.vault
         .getAllLoadedFiles()
-        .filter((f) => f instanceof tp.obsidian.TFolder)
-        .map((folder) => folder.path);
+        .filter(f => f instanceof tp.obsidian.TFolder)
+        .map(folder => folder.path);
 }
 
 /**
@@ -583,10 +583,10 @@ async function createFolder(folder) {
  */
 async function suggestFiles(dv, tp, searchTerm, message) {
     const pages = dv.pages(searchTerm)
-        .where((p) => !p.file.path.includes("template"))
-        .sort((p) => p.file.mtime, "desc").values;
+        .where(p => !p.file.path.includes("template"))
+        .sort(p => p.file.mtime, "desc").values;
     return await tp.system.suggester(
-        (p) => p.file.aliases.length ? p.file.aliases[0] : p.file.basename, pages, false, message);
+        p => p.file.aliases.length ? p.file.aliases[0] : p.file.basename, pages, false, message);
 }
 
 /**
@@ -600,9 +600,9 @@ async function suggestFiles(dv, tp, searchTerm, message) {
  */
 async function suggestTemplateFiles(dv, tp, searchTerm, message) {
     const pages = dv.pages(searchTerm)
-        .where((p) => p.file.path.includes("template"))
-        .sort((p) => p.file.mtime, "desc").values;
-    return await tp.system.suggester((p) => p.file.basename, pages, false, message);
+        .where(p => p.file.path.includes("template"))
+        .sort(p => p.file.mtime, "desc").values;
+    return await tp.system.suggester(p => p.file.basename, pages, false, message);
 }
 
 module.exports = newNoteData;
