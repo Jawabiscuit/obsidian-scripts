@@ -1,3 +1,4 @@
+const illegalCharacterRegex = /[:\?!\|#‘’\'\"\.,+\(\)]/g;
 const STATUS = require(app.vault.adapter.basePath + "/_views/common/status.js");
 
 const BASE_NOTE_TYPES = [
@@ -80,7 +81,7 @@ async function newNoteData(tp, dv) {
         }
     }
 
-    title = qcFileName(title);
+    title = textToFilename(title);
     if (title !== tp.file.title)
         await tp.file.rename(title);
 
@@ -505,12 +506,24 @@ function createMetaMarkdownLink(key, page) {
 }
 
 /**
- * Sanitizes a given file name by replacing invalid characters.
- * @param {string} fileName - The original file name.
- * @return {string} - The sanitized file name in lower case.
+ * Transforms text into a consitent filename.
+ * All characters are lowercased and words separated by dashes.
+ * @param {string} text - Text to transform into a filename.
+ * @return {string} - The text suitable for use as a filename.
  */
-function qcFileName(fileName) {
-    return fileName.replace(/[:\?!\|#‘’ ]/g, "-").toLowerCase();
+function textToFilename(text) {
+    return sanitizeText(text)
+        .replace(/ /g, "-").toLowerCase()
+        .replace(/[--]+/g, "-");
+}
+
+/**
+ * Sanitizes the given text, removing unwanted characters.
+ * @param {string} text - The text to sanitize.
+ * @return {string} - The sanitized text, lowercased.
+ */
+function sanitizeText(text) {
+    return text.replace(illegalCharacterRegex, "").toLowerCase();
 }
 
 /**
