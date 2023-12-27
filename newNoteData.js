@@ -1,6 +1,6 @@
 const STATUS = require(app.vault.adapter.basePath + "/_views/common/status.js");
 
-const illegalCharacterRegex = /[:\?!\|#‘’\'\"\.,+%&\(\)]/g;
+const illegalCharacterRegex = /[:\?!\|#‘’\'\"\.,+%&\(\)\\/]/g;
 
 const BASE_NOTE_TYPES = [
     "reference",
