@@ -1,6 +1,5 @@
-const STATUS = require(app.vault.adapter.basePath + "/_views/common/status.js");
-
-const illegalCharacterRegex = /[:\?!\|#‘’\'\"\.,+%&\(\)\\/]/g;
+const STATUSES = self.require("_modules/status.js");
+const {textToFilename} = self.require(app.vault.adapter.basePath + "/_modules/janitor.js");
 
 const BASE_NOTE_TYPES = [
     "reference",
@@ -153,7 +152,7 @@ async function newNoteData(tp, dv) {
             "🔱 Subtitle", alias.replace(fileDate + " ", "").toLowerCase());
     }
 
-    const statuses = {...STATUS.all};
+    const statuses = {...STATUSES.all};
 
     let status = !DEFAULT_DONT_ASK_STATUS.includes(type) ? await
     tp.system.suggester(
@@ -504,27 +503,6 @@ function createMetaMarkdownLink(key, page) {
     let markdownLink = app.fileManager.generateMarkdownLink(file, "");
     markdownLink = `${markdownLink.slice(0, markdownLink.length - 2)}|${page.aliases[0]}${markdownLink.slice(markdownLink.length - 2)}`;
     return `${key}:: ${markdownLink}`;
-}
-
-/**
- * Transforms text into a consitent filename.
- * All characters are lowercased and words separated by dashes.
- * @param {string} text - Text to transform into a filename.
- * @return {string} - The text suitable for use as a filename.
- */
-function textToFilename(text) {
-    return sanitizeText(text)
-        .replace(/ /g, "-").toLowerCase()
-        .replace(/[--]+/g, "-");
-}
-
-/**
- * Sanitizes the given text, removing unwanted characters.
- * @param {string} text - The text to sanitize.
- * @return {string} - The sanitized text, lowercased.
- */
-function sanitizeText(text) {
-    return text.replace(illegalCharacterRegex, "").toLowerCase();
 }
 
 /**
