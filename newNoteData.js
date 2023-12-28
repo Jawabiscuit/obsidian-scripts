@@ -1,6 +1,3 @@
-const STATUSES = self.require("_modules/status.js");
-const {textToFilename} = self.require(app.vault.adapter.basePath + "/_modules/janitor.js");
-
 const BASE_NOTE_TYPES = [
     "reference",
     "meeting",
@@ -26,11 +23,6 @@ const DEFAULT_NO_TO_TASKS = [
     "monthly",
     "quarterly",
     "yearly",
-    "reference",
-];
-
-const DEFAULT_DONT_ASK_STATUS = [
-    "chat",
     "reference",
 ];
 
@@ -152,16 +144,6 @@ async function newNoteData(tp, dv) {
             "🔱 Subtitle", alias.replace(fileDate + " ", "").toLowerCase());
     }
 
-    const statuses = {...STATUSES.all};
-
-    let status = !DEFAULT_DONT_ASK_STATUS.includes(type) ? await
-    tp.system.suggester(
-        Object.keys(statuses),
-        Object.values(statuses),
-        false,
-        "Enter status",
-    ) : null;
-
     let goal;
     if (type == "project") {
         answer = await tp.system.prompt("Associate goal? (\"y/N\")", "n");
@@ -234,12 +216,6 @@ async function newNoteData(tp, dv) {
         tags = selectedTags.map(t => t[0].replace("#", ""));
     else if (newTag)
         tags = [newTag];
-
-    if (tags.includes("book")) {
-        status = await tp.system.suggester(
-            Object.keys(statuses),
-            Object.values(statuses), false, "Enter status");
-    }
 
     let dailyProgress;
     if (["daily", "journal"].includes(type)) {
@@ -377,7 +353,6 @@ async function newNoteData(tp, dv) {
         type: type,
         series: series,
         includeFile: includeFile,
-        status: status,
         dailyProgress: dailyProgress,
         taskProgress: taskProgress,
         nav: nav,
@@ -400,6 +375,29 @@ async function newNoteData(tp, dv) {
 /**
  * Helper Functions
 */
+
+const illegalCharacterRegex = /[:\?!\|#‘’\'\"\.,+%&\(\)\\/]/g;
+
+/**
+ * Transforms text into a consitent filename.
+ * All characters are lowercased and words separated by dashes.
+ * @param {string} text - Text to transform into a filename.
+ * @return {string} - The text suitable for use as a filename.
+ */
+function textToFilename(text) {
+    return sanitizeText(text)
+        .replace(/ /g, "-").toLowerCase()
+        .replace(/[--]+/g, "-");
+}
+
+/**
+ * Sanitizes the given text, removing unwanted characters.
+ * @param {string} text - The text to sanitize.
+ * @return {string} - The sanitized text, lowercased.
+ */
+function sanitizeText(text) {
+    return text.replace(illegalCharacterRegex, "").toLowerCase();
+}
 
 /**
  * Create a function that parses template literals
