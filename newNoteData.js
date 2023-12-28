@@ -49,9 +49,10 @@ const overviewTClosure = template`overview::\`$= dv.view("overview", {file: "${"
  * Prompts the user for default values and initializes variables.
  * @param {object} tp Templater tp object.
  * @param {object} dv Dataview dv object.
+ * @param {object} utils Utilities object.
  * @return {object} An object of key value pairs.
 */
-async function newNoteData(tp, dv) {
+async function newNoteData(tp, dv, utils) {
     const dateFmt = "ddd Do MMM";
 
     let folder = tp.file.folder(relative=true);
@@ -73,7 +74,7 @@ async function newNoteData(tp, dv) {
         }
     }
 
-    title = textToFilename(title);
+    title = utils.textToFilename(title);
     if (title !== tp.file.title)
         await tp.file.rename(title);
 
@@ -375,29 +376,6 @@ async function newNoteData(tp, dv) {
 /**
  * Helper Functions
 */
-
-const illegalCharacterRegex = /[:\?!\|#‘’\'\"\.,+%&\(\)\\/]/g;
-
-/**
- * Transforms text into a consitent filename.
- * All characters are lowercased and words separated by dashes.
- * @param {string} text - Text to transform into a filename.
- * @return {string} - The text suitable for use as a filename.
- */
-function textToFilename(text) {
-    return sanitizeText(text)
-        .replace(/ /g, "-").toLowerCase()
-        .replace(/[--]+/g, "-");
-}
-
-/**
- * Sanitizes the given text, removing unwanted characters.
- * @param {string} text - The text to sanitize.
- * @return {string} - The sanitized text, lowercased.
- */
-function sanitizeText(text) {
-    return text.replace(illegalCharacterRegex, "").toLowerCase();
-}
 
 /**
  * Create a function that parses template literals
