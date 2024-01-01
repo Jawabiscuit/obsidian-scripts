@@ -13,10 +13,14 @@ const REVIEW_TYPES = {
     "yearly": 365,
 };
 
-const PERIODIC_TYPES = [
-    "journal",
-    "daily",
-].concat(Object.keys(REVIEW_TYPES));
+const DAILY_TYPES = {
+    "journal": 0,
+    "daily": 0,
+};
+
+const PERIODIC_TYPES = {...DAILY_TYPES, ...REVIEW_TYPES};
+
+const ALL_TYPES = BASE_NOTE_TYPES.concat(Object.keys(PERIODIC_TYPES));
 
 const DEFAULT_NO_TO_TASKS = [
     "weekly",
@@ -43,7 +47,7 @@ const DEFAULT_ASK_ASSOC_PROJECT = [
 
 const resourceTClosure = template`resource::\`$= dv.view("section", {file: "${"t"}", searchTerm: "reference", headerName: "Resource", headerNamePlural: "Resources", icon: "🔗", list: true})\``;
 const journalTClosure = template`journal::\`$= dv.view("section", {file: "${"t"}", searchTerm: "journal", headerName: "Journal", headerNamePlural: "Journals", icon: "📓"})\``;
-const overviewTClosure = template`overview::\`$= dv.view("overview", {file: "${"t"}", interval: "${"i"}"})\``;
+const overviewTClosure = template`overview::\`$= dv.view("overview", {file: "${"title"}", interval: "${"interval"}", tags: [${"tags"}]})\``;
 
 /**
  * Prompts the user for default values and initializes variables.
@@ -83,9 +87,8 @@ async function newNoteData(tp, dv, utils) {
     const titleWODate = title.split(fileDateISO + "-")[1];
 
     const dirname = basename(folder);
-    const types = BASE_NOTE_TYPES.concat(PERIODIC_TYPES);
 
-    for (const t of types) {
+    for (const t of ALL_TYPES) {
         if (dirname == t)
             type = t;
     }
@@ -194,7 +197,7 @@ async function newNoteData(tp, dv, utils) {
         tagFound = true;
         removedItem = allTags.splice(typeIndex, 1)[0];
     }
-    const selectedTags = !PERIODIC_TYPES.includes(type) ? await tp.user.multiSuggester(
+    const selectedTags = !ALL_TYPES.includes(type) ? await tp.user.multiSuggester(
         tp,
         t => t[0].replace("#", ""),
         allTags,
@@ -288,8 +291,28 @@ async function newNoteData(tp, dv, utils) {
     }
 
     let overview;
-    if (Object.keys(REVIEW_TYPES).includes(type))
-        overview = overviewTClosure({t: title, i: REVIEW_TYPES[type]});
+    if (Object.keys(PERIODIC_TYPES).includes(type)) {
+        switch (type) {
+            case "journal":
+                overview = overviewTClosure({title: title, interval: REVIEW_TYPES[type], tags: `"reference", "chat", "yt"`});
+                break;
+            case "daily":
+                overview = overviewTClosure({title: title, interval: REVIEW_TYPES[type], tags: `"reference", "journal", "chat", "yt"`});
+                break;
+            case "yearly":
+                overview = overviewTClosure({title: title, interval: REVIEW_TYPES[type], tags: `"goal", "project", "quarterly"`});
+                break;
+            case "quarterly":
+                overview = overviewTClosure({title: title, interval: REVIEW_TYPES[type], tags: `"goal", "project", "monthly"`});
+                break;
+            case "monthly":
+                overview = overviewTClosure({title: title, interval: REVIEW_TYPES[type], tags: `"goal", "project", "weekly"`});
+                break;
+            case "weekly":
+                overview = overviewTClosure({title: title, interval: REVIEW_TYPES[type], tags: `"goal", "project", "daily"`});
+                break;
+        }
+    }
 
     let journalView;
     let resourceView;
