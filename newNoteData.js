@@ -45,18 +45,20 @@ const DEFAULT_ASK_ASSOC_PROJECT = [
     "reference",
 ];
 
-const resourceTClosure = template`resource::\`$= dv.view("section", {file: "${"t"}", searchTerm: "reference", headerName: "Resource", headerNamePlural: "Resources", icon: "🔗", list: true})\``;
-const journalTClosure = template`journal::\`$= dv.view("section", {file: "${"t"}", searchTerm: "journal", headerName: "Journal", headerNamePlural: "Journals", icon: "📓"})\``;
-const overviewTClosure = template`overview::\`$= dv.view("overview", {file: "${"title"}", interval: "${"interval"}", tags: [${"tags"}]})\``;
-
 /**
  * Prompts the user for default values and initializes variables.
  * @param {object} tp Templater tp object.
  * @param {object} dv Dataview dv object.
  * @param {object} utils Utilities object.
+ * @param {object} category Category object.
+ * @param {object} template Template object.
  * @return {object} An object of key value pairs.
 */
-async function newNoteData(tp, dv, utils) {
+async function newNoteData(tp, dv, utils, category, template) {
+    const resourceTClosure = template`resource::\`$= dv.view("section", {file: "${"t"}", searchTerm: "reference", headerName: "Resource", headerNamePlural: "Resources", icon: "🔗", list: true})\``;
+    const journalTClosure = template`journal::\`$= dv.view("section", {file: "${"t"}", searchTerm: "journal", headerName: "Journal", headerNamePlural: "Journals", icon: "📓"})\``;
+    const overviewTClosure = template`overview::\`$= dv.view("overview", {file: "${"title"}", interval: "${"interval"}", tags: [${"tags"}]})\``;
+
     const dateFmt = "ddd Do MMM";
 
     let folder = tp.file.folder(relative=true);
@@ -197,7 +199,7 @@ async function newNoteData(tp, dv, utils) {
         tagFound = true;
         removedItem = allTags.splice(typeIndex, 1)[0];
     }
-    const selectedTags = !ALL_TYPES.includes(type) ? await tp.user.multiSuggester(
+    const selectedTags = !Object.keys(PERIODIC_TYPES).includes(type) ? await tp.user.multiSuggester(
         tp,
         t => t[0].replace("#", ""),
         allTags,
@@ -366,6 +368,21 @@ async function newNoteData(tp, dv, utils) {
         image = `img::[[${pickedImg.name}]]`;
     }
 
+    let postsTableView;
+    let frontMatter;
+    let inlineData;
+    for (tag of tags) {
+        if (category[tag]) {
+            noteInfo = category[tag];
+            frontMatter = await collectMetadata(tp, dv, noteInfo["frontMatter"]);
+            inlineData = await collectMetadata(tp, dv, noteInfo["inlineData"]);
+
+            postsTemplate = noteInfo["postViewTemplate"];
+            if (postsTemplate)
+                postsTableView = postsTemplate({title: title});
+        }
+    }
+
     return {
         date: fileDateISO,
         title: alias,
@@ -393,47 +410,15 @@ async function newNoteData(tp, dv, utils) {
         timeSpan: timeSpan,
         projectDV: projectDataView,
         overview: overview,
+        frontMatter: frontMatter,
+        inlineData: inlineData,
+        postsTV: postsTableView,
     };
 }
 
 /**
  * Helper Functions
 */
-
-/**
- * Create a function that parses template literals
- * Yoinked from:
- *   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals#tagged_templates
- * @param {Array<string>} strings array of strings which may contain ${…} substitutions
- * E.g. `${0}${1}${0}` or `${0} ${"foo"}` or `hey, ${0} ${"foo"} you!`
- * @param {Array<any>} keys keys are strings or numbers inside substitutions
- * E.g. `${0}` or `${"foo"}`
- * @return {function(): string}
- * @example
- *   const t1Closure = template`${0}${1}${0}!`;
- *   // const t1Closure = template(["","","","!"],0,1,0);
- *   t1Closure("Y", "A"); // "YAY!"
- *
- *   const t2Closure = template`${0} ${"foo"}!`;
- *   // const t2Closure = template([""," ","!"],0,"foo");
- *   t2Closure("Hello", { foo: "World" }); // "Hello World!"
- *
- *   const t3Closure = template`I'm ${"name"}. I'm almost ${"age"} years old.`;
- *   // const t3Closure = template(["I'm ", ". I'm almost ", " years old."], "name", "age");
- *   t3Closure("foo", { name: "MDN", age: 30 }); // "I'm MDN. I'm almost 30 years old."
- *   t3Closure({ name: "MDN", age: 30 }); // "I'm MDN. I'm almost 30 years old."
- */
-function template(strings, ...keys) {
-    return (...values) => {
-        const dict = values[values.length - 1] || {};
-        const result = [strings[0]];
-        keys.forEach((key, i) => {
-            const value = Number.isInteger(key) ? values[key] : dict[key];
-            result.push(value, strings[i + 1]);
-        });
-        return result.join("");
-    };
-}
 
 /**
  * Capitalize each word in an array
@@ -515,6 +500,67 @@ function getAllFolderPathsInVault(tp) {
         .getAllLoadedFiles()
         .filter(f => f instanceof tp.obsidian.TFolder)
         .map(folder => folder.path);
+}
+
+/**
+ * Collects metadata by prompting the user to provide values for a set of predefined keys.
+ *
+ * The defaultData parameter contains the metadata keys and their configuration.
+ * For each key, the user is prompted to provide a value based on the key's type.
+ *
+ * Supported types are:
+ * - array: Presents a suggester for the user to choose from the array values.
+ * - url: Prompts for a URL string.
+ * - tag: Suggests pages matching the tag values to link to.
+ * - boolean: Prompts a yes/no question.
+ * - datetime: Prompts for a date time string.
+ * - date: Prompts for a date string.
+ *
+ * The result is an object with the metadata key-value pairs.
+ * @param {object} tp - Templater object
+ * @param {object} dv - Dataview object
+ * @param {object} defaultData - Default values for metadata
+ * @return {object} The collected metadata
+ */
+async function collectMetadata(tp, dv, defaultData) {
+    if (!defaultData)
+        return;
+
+    const result = {};
+    for (k of Object.keys(defaultData)) {
+        if (defaultData[k].type === "string") {
+            const choice = await tp.system.suggester(
+                defaultData[k].values, defaultData[k].values, false, `Choose ${k}`);
+            result[k] = choice;
+        } else if (defaultData[k].type === "url") {
+            const answer = await tp.system.prompt(`${k} url`);
+            result[k] = `[${answer}](${answer})`;
+        } else if (defaultData[k].type === "tag") {
+            const notes = dv.pages(defaultData[k].values.join(" or "))
+                .where(p => !p.file.path.includes("template"))
+                .sort(p => p.file.mtime, "desc").values;
+            const choice = await tp.system.suggester(
+                p => p.file.aliases.length ? p.file.aliases[0] : p.file.basename,
+                notes,
+                false,
+                `Select ${k}`);
+            result[k] = createMetaMarkdownLink(k, choice);
+        } else if (defaultData[k].type === "boolean") {
+            const answer = await tp.system.prompt(`${k}? ("y/N")`, "n");
+            if (answer == "y")
+                result[k] = true;
+            else
+                result[k] = false;
+        } else if (defaultData[k].type === "datetime") {
+            result[k] = await tp.system.prompt(
+                `${k}`, tp.date.now("YYYY-MM-DD HH:mm"), false, false);
+        } else if (defaultData[k].type === "date") {
+            result[k] = await tp.system.prompt(
+                `${k}`, tp.date.now("YYYY-MM-DD"), false, false);
+        }
+    }
+
+    return result;
 }
 
 /**
