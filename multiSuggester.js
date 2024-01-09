@@ -44,7 +44,7 @@ async function multiSuggester(
             items = items.sort( (a, b) => b[1] - a[1], "asc" );
             break;
     }
-    // Looping to keep suggester modal open until escape is hit
+    // Looping to keep suggester modal open until escape is pressed
     while (true) {
         const selectedItem = await tp.system.suggester(
             textItems,
@@ -53,26 +53,29 @@ async function multiSuggester(
             placeholder,
             limit,
         );
-        // If escape is hit, break out of loop to close suggester modal
+        // If escape is pressed, break out of loop to close suggester modal
         if (!selectedItem)
             break;
 
         // Hack to create a new item
         if (selectedItem[0] === "-- New --") {
-            newTag = await tp.system.prompt("New tag");
-            selectedItems.push([`#${newTag}`, 0]);
+            value = await tp.system.prompt("New item");
+            selectedItems.push([`#${value}`, 0]);
             continue;
         }
 
         // Otherwise, add selected item to list of selected items, remove item from multi-
         // select, and keep looping
         selectedItems.push(selectedItem);
-        const selectedItemIndex = items.findIndex((item) => item === selectedItem);
+        const selectedItemIndex = items.findIndex(item => item === selectedItem);
         if (selectedItemIndex >= 0) {
             items.splice(selectedItemIndex, 1);
             if (Array.isArray(textItems))
                 textItems.splice(selectedItemIndex, 1);
         }
+
+        if (!textItems.length)
+            break;
     }
 
     return selectedItems;
