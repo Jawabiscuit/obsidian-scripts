@@ -362,7 +362,7 @@ async function newNoteData(tp, dv, utils, category, template) {
     if (answer == "y") {
         const files = app.vault.getFiles()
             .filter(f => f.path.includes("attachments/") &&
-                ["png", "jpg"].includes(f.extension))
+                ["png", "jpg", "svg", "webp"].includes(f.extension))
             .sort(f => f.ctime, "desc");
         const pickedImg = await tp.system.suggester(file => file.basename, files);
         image = `img::[[${pickedImg.name}]]`;
