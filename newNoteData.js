@@ -532,6 +532,9 @@ async function collectMetadata(tp, dv, defaultData) {
             const choice = await tp.system.suggester(
                 defaultData[k].values, defaultData[k].values, false, `Choose ${k}`);
             result[k] = choice;
+        } else if (defaultData[k].type === "url-bare") {
+            const answer = await tp.system.prompt(`${k} url`);
+            result[k] = `<${answer}>`;
         } else if (defaultData[k].type === "url") {
             const answer = await tp.system.prompt(`${k} url`);
             result[k] = `[${answer}](${answer})`;
