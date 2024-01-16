@@ -34,8 +34,8 @@ const DEFAULT_DONT_ASK_TASKS = [
     "chat",
 ];
 
-const DEFAULT_DONT_ASK_ATTACHMENTS = [
-    "chat",
+const DEFAULT_ASK_ATTACHMENTS = [
+    "goal",
 ];
 
 const DEFAULT_ASK_ASSOC_PROJECT = [
@@ -47,14 +47,16 @@ const DEFAULT_ASK_ASSOC_PROJECT = [
 
 /**
  * Prompts the user for default values and initializes variables.
- * @param {object} tp Templater tp object.
- * @param {object} dv Dataview dv object.
- * @param {object} utils Utilities object.
- * @param {object} category Category object.
- * @param {object} template Template object.
+ * @param {object} tp Templater API.
+ * @param {object} dv Dataview API.
+ * @param {object} utils Utilities module.
+ * @param {object} category Category module.
+ * @param {object} template Template module.
+ * @param {object} modalForm Modalform API.
+ * @param {object} duration Duration module.
  * @return {object} An object of key value pairs.
 */
-async function newNoteData(tp, dv, utils, category, template) {
+async function newNoteData(tp, dv, utils, category, template, modalForm, duration) {
     const resourceTClosure = template`resource::\`$= dv.view("section", {file: "${"t"}", searchTerm: "reference", headerName: "Resource", headerNamePlural: "Resources", icon: "🔗", list: true})\``;
     const journalTClosure = template`journal::\`$= dv.view("section", {file: "${"t"}", searchTerm: "journal", headerName: "Journal", headerNamePlural: "Journals", icon: "📓"})\``;
     const overviewTClosure = template`overview::\`$= dv.view("overview", {file: "${"title"}", interval: "${"interval"}", tags: [${"tags"}]})\``;
@@ -63,21 +65,33 @@ async function newNoteData(tp, dv, utils, category, template) {
 
     let folder = tp.file.folder(relative=true);
     let title = tp.file.title;
-    let folderPath;
+    let tasks;
     let type;
     let series;
     let answer;
 
     // This means the template should have been invoked using TP and not QA
     if (title.startsWith("Untitled")) {
-        const folders = getAllFolderPathsInVault(tp);
-        folderPath = await getOrCreateFolder(tp, folders);
-        title = tp.date.now("YYYY-MM-DD") + "-" + title.toLowerCase();
-        title = await tp.system.prompt("Title", title);
+        const values = {
+            title: tp.date.now("YYYY-MM-DD") + "-" + title.toLowerCase(),
+        };
+        const result = await modalForm.openForm("new-note-tp", {values: values});
+        const folderPath = result.folder.value;
+        if (folderPath)
+            await createFolderIfNotExists(folderPath);
         if (folderPath !== folder) {
             await tp.file.move(folderPath + "/" + title);
             folder = folderPath;
         }
+        title = result.title.value;
+        tasks = result.tasks.value;
+    // Template will have been invoked using QA or Periodic Notes
+    } else {
+        const values = {
+            tasks: DEFAULT_NO_TO_TASKS.includes(basename(folder)) ? false : true,
+        };
+        tasks = !DEFAULT_DONT_ASK_TASKS.includes(basename(folder)) ?
+            await modalForm.openForm("tasks", {values: values}) : false;
     }
 
     title = utils.textToFilename(title);
@@ -88,10 +102,8 @@ async function newNoteData(tp, dv, utils, category, template) {
     const fileDate = moment(fileDateISO).format(dateFmt);
     const titleWODate = title.split(fileDateISO + "-")[1];
 
-    const dirname = basename(folder);
-
     for (const t of ALL_TYPES) {
-        if (dirname == t)
+        if (basename(folder) == t)
             type = t;
     }
 
@@ -150,41 +162,17 @@ async function newNoteData(tp, dv, utils, category, template) {
             "🔱 Subtitle", alias.replace(fileDate + " ", "").toLowerCase());
     }
 
-    let goal;
+    let goalProp;
     if (type == "project") {
-        answer = await tp.system.prompt("Associate goal? (\"y/N\")", "n");
-        if (answer == "y") {
-            const goalNotes = dv.pages("#goal")
-                .where(p => !p.file.path.includes("template"))
-                .sort(p => p.file.mtime, "desc").values;
-            goal = await tp.system.suggester(
-                p => p.file.aliases.length ? p.file.aliases[0] : p.file.basename,
-                goalNotes,
-                false,
-                "Select goal");
-        }
+        const result = await modalForm.openForm("proj-assoc");
+        goalProp = result.asDataview({pick: ["goal"]});
     }
-    let goalMeta;
-    if (goal)
-        goalMeta = createMetaMarkdownLink("goal", goal);
 
-    let project;
+    let projectProp;
     if (DEFAULT_ASK_ASSOC_PROJECT.includes(type)) {
-        answer = await tp.system.prompt("Associate project? (\"y/N\")", "n");
-        if (answer == "y") {
-            const projectNotes = dv.pages("#project")
-                .where(p => !p.file.path.includes("template"))
-                .sort(p => p.file.mtime, "desc").values;
-            project = await tp.system.suggester(
-                p => p.file.aliases.length ? p.file.aliases[0] : p.file.basename,
-                projectNotes,
-                false,
-                "Select project");
-        }
+        const result = await modalForm.openForm("proj-assoc");
+        projectProp = result.asDataview({pick: ["project"]});
     }
-    let projectMeta;
-    if (project)
-        projectMeta = createMetaMarkdownLink("project", project);
 
     cached = app.metadataCache.getTags();
     cached["-- New --"] = 9999;
@@ -199,6 +187,7 @@ async function newNoteData(tp, dv, utils, category, template) {
         tagFound = true;
         removedItem = allTags.splice(typeIndex, 1)[0];
     }
+
     const selectedTags = !Object.keys(PERIODIC_TYPES).includes(type) ? await tp.user.multiSuggester(
         tp,
         t => t[0].replace("#", ""),
@@ -224,7 +213,7 @@ async function newNoteData(tp, dv, utils, category, template) {
         tags = [newTag];
 
     let dailyProgress;
-    if (["daily", "journal"].includes(type)) {
+    if (Object.keys(DAILY_TYPES).includes(type)) {
         const thisDate = new Date(fileDateISO + "T00:00");
         if (tags.includes("work")) {
             // 5 workdays
@@ -270,13 +259,7 @@ async function newNoteData(tp, dv, utils, category, template) {
         nav = 'nav::`$= dv.view("navigation", {file: "' + title + '"})`';
 
     let taskProgress;
-    if (DEFAULT_DONT_ASK_TASKS.includes(type))
-        answer = null;
-    else if (DEFAULT_NO_TO_TASKS.includes(type))
-        answer = await tp.system.prompt("Track progress using tasks? (\"y/N\")", "n");
-    else
-        answer = await tp.system.prompt("Track progress using tasks? (\"Y/n\")", "y");
-    if (answer == "y") {
+    if (tasks) {
         let progressView;
         switch (type) {
             case "project":
@@ -316,37 +299,34 @@ async function newNoteData(tp, dv, utils, category, template) {
         }
     }
 
-    let journalView;
-    let resourceView;
-    let projectDataView;
+    let journalViewProp;
+    let resourceViewProp;
+    let projectViewProp;
 
     if (type == "project") {
-        projectDataView = (
+        projectViewProp = (
             'project-dv::`$= dv.view("project-dv", {file: "' + title + '"})`');
     } else {
-        journalView = journalTClosure({t: title});
-        resourceView = resourceTClosure({t: title});
+        journalViewProp = journalTClosure({t: title});
+        resourceViewProp = resourceTClosure({t: title});
     }
 
     let target;
     let progress;
-    let projectListView;
-    let projectTableView;
+    let projectLVProp;
+    let projectTVProp;
     let timeSpan;
     if (type == "goal") {
-        const choices = [
-            "10 Years", "5 Years", "3 Years", "1 Year", "6 Months",
-            "3 Months", "1 Month", "1 Week",
-        ];
-        timeSpan = await tp.system.suggester(choices, choices);
+        const result = await modalForm.openForm("time-span");
+        timeSpan = duration.display(result.get("time-span"));
         target = 'target::`$= dv.view("target", {file: "' + title + '"})`';
         progress = 'progress::`$= dv.view("progress", {file: "' + title + '"})`';
-        projectListView = (
+        projectLVProp = (
             'projects::`$= dv.view("section", {file: "' + title +
             '", searchTerm: "project", headerName: "Project", ' +
             'headerNamePlural: "Projects", icon: "🏗", list: true})`'
         );
-        projectTableView = (
+        projectTVProp = (
             'project-tv::`$= dv.view("section", {file: "' + title +
             '", searchTerm: "project", headerName: "Project", ' +
             'headerNamePlural: "Projects", icon: "🏗"})`'
@@ -354,9 +334,7 @@ async function newNoteData(tp, dv, utils, category, template) {
     }
 
     let image;
-    if (DEFAULT_DONT_ASK_ATTACHMENTS.includes(type))
-        answer = null;
-    else
+    if (DEFAULT_ASK_ATTACHMENTS.includes(type))
         answer = await tp.system.prompt("Include attachment? (\"y/N\")", "n");
 
     if (answer == "y") {
@@ -368,7 +346,7 @@ async function newNoteData(tp, dv, utils, category, template) {
         image = `img::[[${pickedImg.name}]]`;
     }
 
-    let postsTableView;
+    let postsViewProp;
     let frontMatter;
     let inlineData;
     for (tag of tags) {
@@ -379,7 +357,7 @@ async function newNoteData(tp, dv, utils, category, template) {
 
             postsTemplate = noteInfo["postViewTemplate"];
             if (postsTemplate)
-                postsTableView = postsTemplate({title: title});
+                postsViewProp = postsTemplate({title: title});
         }
     }
 
@@ -398,21 +376,21 @@ async function newNoteData(tp, dv, utils, category, template) {
         taskProgress: taskProgress,
         nav: nav,
         img: image,
-        project: projectMeta,
-        goal: goalMeta,
-        journal: journalView,
-        resource: resourceView,
-        projectLV: projectListView,
+        project: projectProp,
+        goal: goalProp,
+        journal: journalViewProp,
+        resource: resourceViewProp,
+        projectLV: projectLVProp,
         cssClasses: [],
         target: target,
         progress: progress,
-        projectTV: projectTableView,
+        projectTV: projectTVProp,
         timeSpan: timeSpan,
-        projectDV: projectDataView,
+        projectDV: projectViewProp,
         overview: overview,
         frontMatter: frontMatter,
         inlineData: inlineData,
-        postsTV: postsTableView,
+        postsTV: postsViewProp,
     };
 }
 
@@ -583,7 +561,7 @@ async function getOrCreateFolder(tp, folders) {
     } else {
         folderPath = folders[0];
     }
-    await createFolder(folderPath);
+    await createFolderIfNotExists(folderPath);
     return folderPath;
 }
 
@@ -592,11 +570,22 @@ async function getOrCreateFolder(tp, folders) {
  * Yoinked from https://github.com/chhoumann/quickadd/blob/master/src/engine/TemplateEngine.ts
  * @param {string} folder - The path of the folder to create.
  */
-async function createFolder(folder) {
+async function createFolderIfNotExists(folder) {
     const folderExists = await this.app.vault.adapter.exists(folder);
 
     if (!folderExists)
         await this.app.vault.createFolder(folder);
+}
+
+/**
+ * Find image attachments
+ * @return {Array<TFile>}
+ */
+async function findImageAttachments() {
+    return app.vault.getFiles()
+        .filter(f => f.path.includes("attachments/") &&
+            ["png", "jpg", "svg", "webp"].includes(f.extension))
+        .sort(f => f.ctime, "desc");
 }
 
 /**
